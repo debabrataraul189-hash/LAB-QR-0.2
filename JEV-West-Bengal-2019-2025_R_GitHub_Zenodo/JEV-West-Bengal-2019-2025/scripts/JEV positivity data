@@ -1,0 +1,109 @@
+library(ggplot2)
+library(dplyr)
+
+# ============================================
+# JEV positivity data: 2019–2025
+# ============================================
+
+data <- data.frame(
+  Year = rep(2019:2025, times = 5),
+  
+  District = rep(
+    c("Alipurduar",
+      "Cooch Behar",
+      "Darjeeling",
+      "Jalpaiguri",
+      "Uttar Dinajpur"),
+    each = 7
+  ),
+  
+  JEV_positivity = c(
+    # Alipurduar
+    30.00, 11.76, 16.67, 16.67, 15.91, 9.09, 5.26,
+    
+    # Cooch Behar
+    27.78, 18.75, 8.00, 26.92, 16.67, 17.39, 26.92,
+    
+    # Darjeeling
+    23.08, 22.81, 14.49, 7.64, 13.82, 8.65, 10.53,
+    
+    # Jalpaiguri
+    10.00, 15.38, 14.29, 4.97, 13.45, 6.86, 11.02,
+    
+    # Uttar Dinajpur
+    29.41, 5.88, 13.89, 4.00, 8.00, 15.38, 11.59
+  )
+)
+
+# ============================================
+# District colours
+# ============================================
+
+district_colors <- c(
+  "Alipurduar"     = "#1f77b4",
+  "Cooch Behar"    = "#ff7f0e",
+  "Darjeeling"     = "#2ca02c",
+  "Jalpaiguri"     = "#d62728",
+  "Uttar Dinajpur" = "#9467bd"
+)
+
+# ============================================
+# Plot
+# ============================================
+
+p <- ggplot(
+  data,
+  aes(
+    x = Year,
+    y = JEV_positivity,
+    color = District,
+    group = District
+  )
+) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2.5) +
+  
+  scale_color_manual(values = district_colors) +
+  
+  scale_x_continuous(
+    breaks = 2019:2025
+  ) +
+  
+  scale_y_continuous(
+    limits = c(0, 35),
+    breaks = seq(0, 35, 5)
+  ) +
+  
+  labs(
+    x = "Year",
+    y = "JEV positivity (%)",
+    color = "District"
+  ) +
+  
+  theme_minimal(base_size = 13) +
+  
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(
+      color = "black",
+      fill = NA,
+      linewidth = 0.5
+    ),
+    axis.title = element_text(face = "bold"),
+    legend.title = element_text(face = "bold"),
+    legend.background = element_rect(
+      color = "black",
+      linewidth = 0.3
+    )
+  )
+
+p
+
+# Save at 600 DPI
+ggsave(
+  "JEV_positivity_trends.png",
+  plot = p,
+  width = 10,
+  height = 7,
+  dpi = 600
+)
