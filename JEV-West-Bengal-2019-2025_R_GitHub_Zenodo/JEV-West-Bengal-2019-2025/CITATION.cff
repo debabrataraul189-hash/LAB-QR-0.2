@@ -1,0 +1,8 @@
+cff-version: 1.2.0
+title: "JEV West Bengal 2019–2025: R Analysis"
+message: "If you use these scripts, please cite the associated Zenodo record."
+type: software
+authors:
+  - family-names: Raul
+    given-names: Debabrata
+year: 2026
