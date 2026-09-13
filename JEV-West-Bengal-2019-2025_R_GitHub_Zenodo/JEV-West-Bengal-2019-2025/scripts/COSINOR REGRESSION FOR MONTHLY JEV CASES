@@ -1,0 +1,198 @@
+# ============================================================
+# COSINOR REGRESSION FOR MONTHLY JEV CASES
+# Period = 12 months (annual seasonality)
+# Study period = January 2019 to December 2025
+# ============================================================
+
+# Packages
+library(tidyverse)
+library(broom)
+
+# ------------------------------------------------------------
+# 1. Enter monthly JEV-positive case data
+# ------------------------------------------------------------
+
+monthly_data <- data.frame(
+  Year = rep(2019:2025, each = 12),
+  Month = rep(1:12, times = 7),
+  Positive = c(
+    # 2019
+    1, 0, 1, 2, 1, 1, 6, 7, 4, 4, 2, 1,
+    
+    # 2020
+    0, 2, 2, 0, 1, 0, 5, 6, 3, 4, 3, 1,
+    
+    # 2021
+    1, 2, 1, 1, 0, 1, 7, 9, 5, 5, 4, 1,
+    
+    # 2022
+    1, 1, 1, 1, 2, 0, 6, 8, 5, 5, 4, 3,
+    
+    # 2023
+    2, 2, 1, 2, 1, 1, 8, 10, 7, 7, 4, 4,
+    
+    # 2024
+    1, 2, 1, 1, 1, 1, 5, 6, 5, 5, 1, 0,
+    
+    # 2025
+    1, 4, 2, 4, 2, 2, 7, 5, 5, 5, 3, 2
+  )
+)
+
+# Check total
+sum(monthly_data$Positive)
+
+# ------------------------------------------------------------
+# 2. Create continuous time variable
+# ------------------------------------------------------------
+
+monthly_data <- monthly_data %>%
+  mutate(
+    Time = 1:n(),
+    Month_name = factor(
+      Month,
+      levels = 1:12,
+      labels = month.abb
+    )
+  )
+
+# ------------------------------------------------------------
+# 3. Create annual harmonic terms
+# ------------------------------------------------------------
+
+monthly_data <- monthly_data %>%
+  mutate(
+    Sin12 = sin(2 * pi * Time / 12),
+    Cos12 = cos(2 * pi * Time / 12)
+  )
+
+# ------------------------------------------------------------
+# 4. Fit cosinor regression
+# ------------------------------------------------------------
+
+cosinor_model <- lm(
+  Positive ~ Sin12 + Cos12,
+  data = monthly_data
+)
+
+# Model summary
+summary(cosinor_model)
+
+# ------------------------------------------------------------
+# 5. Extract regression coefficients
+# ------------------------------------------------------------
+
+cosinor_results <- tidy(
+  cosinor_model,
+  conf.int = TRUE
+)
+
+print(cosinor_results)
+
+# ------------------------------------------------------------
+# 6. Calculate amplitude
+# ------------------------------------------------------------
+
+beta_sin <- coef(cosinor_model)["Sin12"]
+beta_cos <- coef(cosinor_model)["Cos12"]
+
+Amplitude <- sqrt(beta_sin^2 + beta_cos^2)
+
+Amplitude
+
+# ------------------------------------------------------------
+# 7. Calculate acrophase
+# ------------------------------------------------------------
+
+Acrophase <- atan2(beta_sin, beta_cos)
+
+# Convert radians to degrees
+Acrophase_deg <- Acrophase * 180 / pi
+
+# Convert to 0–360 degrees
+if (Acrophase_deg < 0) {
+  Acrophase_deg <- Acrophase_deg + 360
+}
+
+Acrophase_deg
+
+# ------------------------------------------------------------
+# 8. Convert acrophase to approximate month
+# ------------------------------------------------------------
+
+Peak_month <- ((Acrophase_deg / 360) * 12)
+
+Peak_month
+
+# Convert to calendar month
+Peak_month_index <- round(Peak_month) %% 12
+
+if (Peak_month_index == 0) {
+  Peak_month_index <- 12
+}
+
+Peak_month_name <- month.abb[Peak_month_index]
+
+Peak_month_name
+
+# ------------------------------------------------------------
+# 9. Test overall significance of harmonic terms
+# ------------------------------------------------------------
+
+cosinor_reduced <- lm(
+  Positive ~ 1,
+  data = monthly_data
+)
+
+anova(
+  cosinor_reduced,
+  cosinor_model
+)
+
+# ------------------------------------------------------------
+# 10. Model R-squared
+# ------------------------------------------------------------
+
+summary(cosinor_model)$r.squared
+
+# ------------------------------------------------------------
+# 11. Predicted values
+# ------------------------------------------------------------
+
+monthly_data <- monthly_data %>%
+  mutate(
+    Predicted = predict(cosinor_model)
+  )
+
+# ------------------------------------------------------------
+# 12. Publication-quality cosinor plot
+# ------------------------------------------------------------
+
+ggplot(monthly_data, aes(x = Time)) +
+  
+  geom_point(
+    aes(y = Positive),
+    size = 2.5
+  ) +
+  
+  geom_line(
+    aes(y = Positive),
+    linewidth = 0.6
+  ) +
+  
+  geom_line(
+    aes(y = Predicted),
+    linewidth = 1
+  ) +
+  
+  scale_x_continuous(
+    breaks = seq(1, 84, by = 12),
+    labels = 2019:2025
+  ) +
+  
+  labs(
+    x = "Year",
+    y = "JEV-positive cases"
+  ) +
+  
+  theme_classic(base_size = 12)
