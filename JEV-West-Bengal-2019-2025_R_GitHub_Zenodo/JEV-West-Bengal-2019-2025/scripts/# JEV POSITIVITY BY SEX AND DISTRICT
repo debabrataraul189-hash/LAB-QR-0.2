@@ -1,0 +1,121 @@
+#===============================================================================
+# JEV POSITIVITY BY SEX AND DISTRICT
+#===============================================================================
+
+library(ggplot2)
+
+#-------------------------------------------------------------------------------
+# 1. FINAL VERIFIED DATA
+#-------------------------------------------------------------------------------
+
+sex_data <- data.frame(
+
+  District = rep(
+    c("DRJ", "JAL", "UDJ", "APD", "CRB"),
+    each = 2
+  ),
+
+  Sex = rep(
+    c("Female", "Male"),
+    times = 5
+  ),
+
+  Positivity = c(
+    # DRJ
+    11.08, 13.59,
+
+    # JAL
+     8.93, 11.00,
+
+    # UDJ
+    11.72, 10.67,
+
+    # APD
+     9.38, 18.03,
+
+    # CRB
+    16.44, 23.08
+  )
+)
+
+#-------------------------------------------------------------------------------
+# 2. SET FACTOR ORDER
+#-------------------------------------------------------------------------------
+
+sex_data$District <- factor(
+  sex_data$District,
+  levels = c(
+    "DRJ",
+    "JAL",
+    "UDJ",
+    "APD",
+    "CRB"
+  )
+)
+
+sex_data$Sex <- factor(
+  sex_data$Sex,
+  levels = c(
+    "Female",
+    "Male"
+  )
+)
+
+#-------------------------------------------------------------------------------
+# 3. GROUPED BAR PLOT
+#-------------------------------------------------------------------------------
+
+p <- ggplot(
+  sex_data,
+  aes(
+    x = District,
+    y = Positivity,
+    fill = Sex
+  )
+) +
+
+  geom_col(
+    position = position_dodge(width = 0.75),
+    width = 0.65
+  ) +
+
+  scale_y_continuous(
+    limits = c(0, 25),
+    breaks = seq(0, 25, 5),
+    expand = c(0, 0)
+  ) +
+
+  scale_fill_manual(
+    values = c(
+      "Female" = "#E78AC3",
+      "Male" = "#1E88E5"
+    )
+  ) +
+
+  labs(
+    x = "District",
+    y = "Positivity (%)",
+    fill = "Sex"
+  ) +
+
+  theme_classic(
+    base_size = 13
+  ) +
+
+  theme(
+    axis.title = element_text(
+      face = "bold"
+    ),
+
+    axis.text = element_text(
+      color = "black"
+    ),
+
+    legend.title = element_text(
+      face = "bold"
+    ),
+
+    legend.position = "bottom"
+  )
+
+print(p)
