@@ -1,0 +1,145 @@
+library(ggplot2)
+library(dplyr)
+
+# ============================================
+# District-wise JEV clinical outcome data
+# ============================================
+
+data <- data.frame(
+  District = rep(
+    c("Darjeeling",
+      "Jalpaiguri",
+      "Alipurduar",
+      "Uttar Dinajpur",
+      "Cooch Behar"),
+    each = 7
+  ),
+  
+  Outcome = rep(
+    c("Death",
+      "Discharge",
+      "Admit",
+      "DORB",
+      "LAMA",
+      "No record",
+      "Abscond"),
+    times = 5
+  ),
+  
+  Count = c(
+    # Darjeeling (n = 85)
+    18, 54, 4, 6, 1, 2, 0,
+    
+    # Jalpaiguri (n = 71)
+    13, 42, 9, 5, 1, 1, 0,
+    
+    # Alipurduar (n = 31)
+    9, 19, 2, 0, 1, 0, 0,
+    
+    # Uttar Dinajpur (n = 31)
+    11, 16, 0, 2, 1, 0, 1,
+    
+    # Cooch Behar (n = 33)
+    7, 15, 8, 1, 1, 1, 0
+  )
+)
+
+# ============================================
+# Calculate district-wise percentage
+# Truncated to 2 decimal places (NOT rounded)
+# ============================================
+
+data <- data %>%
+  group_by(District) %>%
+  mutate(
+    Percentage = Count / sum(Count) * 100,
+    Percentage_2dp = trunc(Percentage * 100) / 100
+  ) %>%
+  ungroup()
+
+# Keep Outcome as a factor with fixed level order for a consistent legend/stack order
+data$Outcome <- factor(
+  data$Outcome,
+  levels = c("Death", "Discharge", "Admit", "DORB", "LAMA", "No record", "Abscond")
+)
+
+# ============================================
+# New color palette (colorblind-friendly, distinct hues)
+# ============================================
+
+outcome_colors <- c(
+  "Death"      = "#D62728",  # red
+  "Discharge"  = "#2CA02C",  # green
+  "Admit"      = "#1F77B4",  # blue
+  "DORB"       = "#FF7F0E",  # orange
+  "LAMA"       = "#9467BD",  # purple
+  "No record"  = "#7F7F7F",  # grey
+  "Abscond"    = "#17BECF"   # teal
+)
+
+# ============================================
+# Stacked bar graph
+# ============================================
+
+p <- ggplot(
+  data,
+  aes(
+    x = District,
+    y = Percentage,
+    fill = Outcome
+  )
+) +
+  
+  geom_bar(
+    stat = "identity",
+    width = 0.7,
+    color = "white",
+    linewidth = 0.3
+  ) +
+  
+  scale_fill_manual(values = outcome_colors) +
+  
+  scale_y_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, 20),
+    expand = c(0, 0)
+  ) +
+  
+  labs(
+    x = "District",
+    y = "Clinical outcome (%)",
+    fill = "Outcome"
+  ) +
+  
+  theme_minimal(base_size = 13) +
+  
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(
+      color = "black",
+      fill = NA,
+      linewidth = 0.5
+    ),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(
+      angle = 0,
+      hjust = 0.5
+    ),
+    legend.title = element_text(face = "bold"),
+    legend.position = "bottom"
+  )
+
+# Display graph
+p
+
+# ============================================
+# Save high-resolution figure
+# ============================================
+
+ggsave(
+  "JEV_clinical_outcomes_district.png",
+  plot = p,
+  width = 10,
+  height = 7,
+  dpi = 600
+)
