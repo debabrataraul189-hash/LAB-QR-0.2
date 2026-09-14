@@ -1,0 +1,60 @@
+# ============================================
+# Year and death outcome among JEV-positive cases
+# ============================================
+
+data <- data.frame(
+  Year = 2019:2025,
+  Total_positive = c(30, 27, 37, 37, 49, 29, 42),
+  Death = c(10, 5, 3, 4, 14, 8, 14)
+)
+
+# Non-death
+data$Non_death <- data$Total_positive - data$Death
+
+# Create contingency table
+death_table <- as.table(
+  rbind(
+    Death = data$Death,
+    `Non-death` = data$Non_death
+  )
+)
+
+colnames(death_table) <- data$Year
+
+# View contingency table
+death_table
+
+
+# ============================================
+# 1. Pearson's Chi-square test
+# ============================================
+
+pearson_chi <- chisq.test(
+  death_table,
+  correct = FALSE
+)
+
+pearson_chi
+
+
+# ============================================
+# Check expected frequencies
+# ============================================
+
+pearson_chi$expected
+
+
+# ============================================
+# 2. Monte Carlo Chi-square test
+# ============================================
+
+set.seed(12345)
+
+monte_carlo_chi <- chisq.test(
+  death_table,
+  correct = FALSE,
+  simulate.p.value = TRUE,
+  B = 100000
+)
+
+monte_carlo_chi
