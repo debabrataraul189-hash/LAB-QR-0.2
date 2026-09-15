@@ -2,22 +2,7 @@
 #
 # MONTHLY JEV-POSITIVE CASES BY YEAR
 # Five districts of North Bengal, 2019-2025
-#
-# FIX NOTE (this version):
-#   1. Namespace-collision hardening. The original script called mutate(),
-#      group_by(), summarise(), and pivot_longer() as bare functions. If any
-#      other loaded package also defines one of these (plyr, Hmisc, and many
-#      spatial/stats packages do), R silently uses the WRONG function and
-#      throws errors like "unused arguments (...)" - exactly what happened
-#      with select() in the companion heatmap script. All dplyr/tidyr calls
-#      are now explicitly namespaced (dplyr::, tidyr::) so behaviour no
-#      longer depends on package load order.
-#   2. Hard-coded y-axis limits. scale_y_continuous(limits = c(0, 14)) was
-#      hard-coded. The current max cell (13, Aug 2023) happens to fit, but
-#      if the dataset is ever updated and a monthly count exceeds 14, ggplot
-#      would silently drop that point instead of erroring. Limits/breaks are
-#      now computed dynamically from the data.
-#===============================================================================
+# #===============================================================================
 
 suppressPackageStartupMessages({
   library(ggplot2)
