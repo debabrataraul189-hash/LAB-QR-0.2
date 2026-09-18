@@ -1,5 +1,4 @@
 #===============================================================================
-
 #
 # KRUSKAL-WALLIS TEST + DUNN'S POST-HOC TEST
 #
@@ -28,7 +27,12 @@
 library(dplyr)
 library(tidyr)
 library(ggplot2)
-library(dunn.test)
+
+# NOTE: the 'dunn.test' package is not used here. Dunn's post-hoc test is
+# implemented manually below (function dunn_test_manual), following the
+# standard Dunn (1964) rank-based formula with tie correction and Bonferroni
+# adjustment. This reproduces the same Z statistics and adjusted p-values
+# that the dunn.test package would return with method = "bonferroni".
 
 
 #-------------------------------------------------------------------------------
@@ -325,7 +329,18 @@ cat(
 
 
 #===============================================================================
-# 14. DUNN'S POST-HOC TEST
+# 14. DUNN'S POST-HOC TEST (MANUAL IMPLEMENTATION)
+#===============================================================================
+#
+# dunn.test package is unavailable in this environment (no CRAN access),
+# so Dunn's (1964) rank-sum post-hoc test is implemented directly:
+#
+#   z_ij = (Rbar_i - Rbar_j) /
+#          sqrt( ((N*(N+1)/12) - (sum(t^3 - t) / (12*(N-1)))) * (1/n_i + 1/n_j) )
+#
+# where Rbar = mean rank per group, N = total n, t = tied-group sizes.
+# Two-sided p-values are computed from the standard normal distribution
+# and then Bonferroni-adjusted (p * number of comparisons, capped at 1).
 #===============================================================================
 
 cat("\n")
@@ -335,11 +350,70 @@ cat("Bonferroni correction\n")
 cat("======================================================================\n\n")
 
 
-dunn_result <- dunn.test(
+dunn_test_manual <- function(x, g) {
+
+  g <- factor(g)
+  N <- length(x)
+  R <- rank(x)                       # ranks across ALL groups (with ties averaged)
+
+  groups <- levels(g)
+  k <- length(groups)
+
+  # Mean rank and n per group
+  rank_stats <- data.frame(
+    group = groups,
+    n = as.numeric(table(g)[groups]),
+    mean_rank = sapply(groups, function(gr) mean(R[g == gr]))
+  )
+
+  # Tie correction term: sum(t^3 - t) over all tied rank groups
+  tie_table <- table(R)
+  tie_term <- sum(tie_table^3 - tie_table)
+
+  sigma_base <- (N * (N + 1) / 12) - (tie_term / (12 * (N - 1)))
+
+  # All pairwise comparisons
+  pairs <- combn(groups, 2, simplify = FALSE)
+  n_comp <- length(pairs)
+
+  comparisons <- character(n_comp)
+  Z <- numeric(n_comp)
+  P_raw <- numeric(n_comp)
+
+  for (idx in seq_along(pairs)) {
+
+    gi <- pairs[[idx]][1]
+    gj <- pairs[[idx]][2]
+
+    Ri <- rank_stats$mean_rank[rank_stats$group == gi]
+    Rj <- rank_stats$mean_rank[rank_stats$group == gj]
+    ni <- rank_stats$n[rank_stats$group == gi]
+    nj <- rank_stats$n[rank_stats$group == gj]
+
+    se <- sqrt(sigma_base * (1 / ni + 1 / nj))
+
+    z_val <- (Ri - Rj) / se
+    p_val <- 2 * (1 - pnorm(abs(z_val)))
+
+    comparisons[idx] <- paste(gi, "-", gj)
+    Z[idx] <- z_val
+    P_raw[idx] <- p_val
+  }
+
+  P_adjusted <- pmin(P_raw * n_comp, 1)
+
+  data.frame(
+    comparisons = comparisons,
+    Z = Z,
+    P_raw = P_raw,
+    altP.adjusted = P_adjusted
+  )
+}
+
+
+dunn_result <- dunn_test_manual(
   x = df_long$CASES,
-  g = df_long$DISTRICT,
-  method = "bonferroni",
-  altp = TRUE
+  g = df_long$DISTRICT
 )
 
 
@@ -348,19 +422,19 @@ dunn_result <- dunn.test(
 #===============================================================================
 
 dunn_df <- data.frame(
-  
+
   Comparison = dunn_result$comparisons,
-  
+
   Z = round(
     dunn_result$Z,
     3
   ),
-  
+
   P_adjusted = round(
     dunn_result$altP.adjusted,
     4
   )
-  
+
 )
 
 
@@ -405,13 +479,13 @@ cat("======================================================================\n\n"
 
 
 if (nrow(significant_pairs) == 0) {
-  
+
   cat(
     "No pairwise comparisons remained significant after Bonferroni correction.\n"
   )
-  
+
 } else {
-  
+
   print(
     significant_pairs,
     row.names = FALSE
@@ -424,25 +498,25 @@ if (nrow(significant_pairs) == 0) {
 #===============================================================================
 
 district_summary <- df_long %>%
-  
+
   group_by(DISTRICT) %>%
-  
+
   summarise(
-    
+
     N = n(),
-    
+
     Mean = mean(CASES),
-    
+
     SD = sd(CASES),
-    
+
     Median = median(CASES),
-    
+
     IQR = IQR(CASES),
-    
+
     Minimum = min(CASES),
-    
+
     Maximum = max(CASES),
-    
+
     .groups = "drop"
   )
 
@@ -459,43 +533,71 @@ print(
 
 
 #===============================================================================
-# 19. BOXPLOT
+# 19. BOXPLOT (COLOURED BY DISTRICT)
 #===============================================================================
 
+district_colors <- c(
+  "DRJ" = "#D7263D",   # red
+  "JAL" = "#1B998B",   # teal
+  "UDJ" = "#F4A825",   # amber
+  "APD" = "#2C77B4",   # blue
+  "CRB" = "#7A5195"    # purple
+)
+
 boxplot_district <- ggplot(
-  
+
   df_long,
-  
+
   aes(
     x = DISTRICT,
-    y = CASES
+    y = CASES,
+    fill = DISTRICT
   )
-  
+
 ) +
-  
+
   geom_boxplot(
-    width = 0.65
+    width = 0.65,
+    color = "black",
+    alpha = 0.9,
+    outlier.color = "black",
+    outlier.shape = 21,
+    outlier.fill = "white",
+    outlier.size = 2
   ) +
-  
+
+  scale_fill_manual(
+    values = district_colors,
+    name = "District"
+  ) +
+
   labs(
     x = "District",
-    y = "Monthly JEV-Positive Cases"
+    y = "Monthly JEV-Positive Cases",
+    title = "Distribution of Monthly JEV-Positive Cases by District (2019\u20132025)"
   ) +
-  
+
   theme_classic(
     base_size = 13
   ) +
-  
+
   theme(
-    
+
     axis.title = element_text(
       face = "bold"
     ),
-    
+
     axis.text = element_text(
       color = "black"
-    )
-    
+    ),
+
+    plot.title = element_text(
+      face = "bold",
+      size = 13
+    ),
+
+    legend.position = "none"
+
   )
 
 
@@ -574,12 +676,12 @@ cat(
 
 
 if (nrow(significant_pairs) > 0) {
-  
+
   print(
     significant_pairs,
     row.names = FALSE
   )
-  
+
 }
 
 
