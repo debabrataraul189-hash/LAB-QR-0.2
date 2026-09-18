@@ -1,0 +1,500 @@
+# ==============================================================
+# JEV SEASONALITY ANALYSIS
+# Correct dataset: 2019-2025
+# Overall JEV-positive cases = 251
+# ==============================================================
+
+library(tidyverse)
+library(forecast)
+library(ggplot2)
+library(circular)
+library(plotrix)
+
+# --------------------------------------------------------------
+# 1. MONTHS AND YEARS
+# --------------------------------------------------------------
+
+months <- c("JAN","FEB","MAR","APR","MAY","JUN",
+            "JUL","AUG","SEP","OCT","NOV","DEC")
+
+years <- 2019:2025
+
+
+# --------------------------------------------------------------
+# 2. DRJ DATA
+# --------------------------------------------------------------
+
+DRJ <- data.frame(
+  Y2019=c(0,1,3,1,0,0,1,1,0,1,1,0),
+  Y2020=c(0,1,1,0,0,2,3,0,1,2,2,1),
+  Y2021=c(1,0,0,0,0,0,2,3,3,1,1,2),
+  Y2022=c(0,0,0,0,1,0,0,0,2,4,4,1),
+  Y2023=c(1,3,0,0,2,1,0,6,2,1,0,1),
+  Y2024=c(1,0,0,0,0,0,0,3,2,2,1,0),
+  Y2025=c(1,0,0,2,0,0,3,1,1,4,0,0)
+)
+
+
+# --------------------------------------------------------------
+# 3. JAL DATA
+# --------------------------------------------------------------
+
+JAL <- data.frame(
+  Y2019=c(0,0,1,0,0,0,2,1,0,0,0,1),
+  Y2020=c(0,0,2,0,0,1,2,2,0,0,0,1),
+  Y2021=c(0,0,0,1,0,0,7,3,0,2,1,0),
+  Y2022=c(0,0,0,1,0,0,0,0,2,4,0,1),
+  Y2023=c(1,1,0,0,2,0,2,4,4,2,0,0),
+  Y2024=c(0,0,0,0,0,0,2,3,1,1,0,0),
+  Y2025=c(0,0,0,2,2,0,3,1,0,2,3,0)
+)
+
+
+# --------------------------------------------------------------
+# 4. UDJ DATA
+# --------------------------------------------------------------
+
+UDJ <- data.frame(
+  Y2019=c(0,0,0,0,0,0,1,2,1,0,1,0),
+  Y2020=c(0,0,0,0,0,0,0,0,0,0,1,0),
+  Y2021=c(0,0,0,0,0,0,2,2,0,1,0,0),
+  Y2022=c(0,0,0,0,0,1,0,0,0,1,0,0),
+  Y2023=c(0,0,0,0,0,0,1,0,0,3,0,0),
+  Y2024=c(0,0,1,0,0,0,1,2,2,0,0,0),
+  Y2025=c(0,1,0,0,0,0,3,0,1,1,1,1)
+)
+
+
+# --------------------------------------------------------------
+# 5. APD DATA
+# --------------------------------------------------------------
+
+APD <- data.frame(
+  Y2019=c(0,0,0,1,0,0,2,2,1,0,0,0),
+  Y2020=c(0,0,0,0,0,0,2,0,0,0,0,0),
+  Y2021=c(0,0,0,0,0,0,1,0,0,0,1,1),
+  Y2022=c(0,0,0,0,0,0,0,5,2,0,0,1),
+  Y2023=c(0,1,0,0,1,0,0,2,2,1,0,0),
+  Y2024=c(0,0,0,0,0,0,0,1,1,0,1,0),
+  Y2025=c(0,0,0,0,0,0,1,0,0,0,1,0)
+)
+
+
+# --------------------------------------------------------------
+# 6. CRB DATA
+# --------------------------------------------------------------
+
+CRB <- data.frame(
+  Y2019=c(1,0,1,0,0,1,1,1,0,0,0,0),
+  Y2020=c(1,1,0,0,0,0,0,0,0,0,0,1),
+  Y2021=c(0,0,0,1,0,0,0,0,0,0,1,0),
+  Y2022=c(0,2,0,0,0,0,0,1,2,1,1,0),
+  Y2023=c(0,1,0,0,0,0,0,1,3,0,0,0),
+  Y2024=c(0,0,0,0,0,0,0,3,0,1,0,0),
+  Y2025=c(0,1,0,2,0,0,2,1,1,0,0,0)
+)
+
+
+# ==============================================================
+# 7. COMBINE DISTRICTS
+# ==============================================================
+
+district_list <- list(
+  DRJ = DRJ,
+  JAL = JAL,
+  UDJ = UDJ,
+  APD = APD,
+  CRB = CRB
+)
+
+
+# ==============================================================
+# 8. CHECK DISTRICT TOTALS
+# ==============================================================
+
+district_totals <- sapply(
+  district_list,
+  function(x) sum(as.matrix(x))
+)
+
+print(district_totals)
+
+overall_total <- sum(district_totals)
+
+cat("\n====================================\n")
+cat("OVERALL JEV-POSITIVE CASES:", overall_total)
+cat("\n====================================\n")
+
+
+# ==============================================================
+# 9. CONVERT TO LONG FORMAT
+# ==============================================================
+
+all_data <- bind_rows(
+  lapply(names(district_list), function(d) {
+    
+    x <- district_list[[d]]
+    
+    x$MONTH <- months
+    
+    x %>%
+      pivot_longer(
+        cols = starts_with("Y"),
+        names_to = "YEAR",
+        values_to = "CASES"
+      ) %>%
+      mutate(
+        DISTRICT = d,
+        YEAR = as.numeric(sub("Y","",YEAR)),
+        MONTH_NUM = match(MONTH, months)
+      )
+  })
+)
+
+all_data$MONTH <- factor(
+  all_data$MONTH,
+  levels = months
+)
+
+
+# ==============================================================
+# 10. VERIFY OVERALL TOTAL
+# ==============================================================
+
+cat("\nTotal JEV-positive cases =", sum(all_data$CASES))
+
+
+# ==============================================================
+# 11. DISTRICT-WISE TOTAL
+# ==============================================================
+
+district_summary <- all_data %>%
+  group_by(DISTRICT) %>%
+  summarise(
+    Total_Positive = sum(CASES),
+    .groups = "drop"
+  )
+
+print(district_summary)
+
+
+# ==============================================================
+# 12. MONTH-WISE TOTAL
+# ==============================================================
+
+monthly_summary <- all_data %>%
+  group_by(MONTH, MONTH_NUM) %>%
+  summarise(
+    Total_Cases = sum(CASES),
+    .groups = "drop"
+  ) %>%
+  arrange(MONTH_NUM)
+
+print(monthly_summary)
+
+
+# ==============================================================
+# 13. YEAR-WISE TOTAL
+# ==============================================================
+
+yearly_summary <- all_data %>%
+  group_by(YEAR) %>%
+  summarise(
+    Total_Cases = sum(CASES),
+    .groups = "drop"
+  )
+
+print(yearly_summary)
+
+
+# ==============================================================
+# 14. DISTRICT × YEAR
+# ==============================================================
+
+district_year <- all_data %>%
+  group_by(DISTRICT, YEAR) %>%
+  summarise(
+    Cases = sum(CASES),
+    .groups = "drop"
+  )
+
+print(district_year)
+
+
+# ==============================================================
+# 15. MONTHLY PROPORTION
+# ==============================================================
+
+monthly_summary <- monthly_summary %>%
+  mutate(
+    Percentage = round(
+      Total_Cases / sum(Total_Cases) * 100,
+      2
+    )
+  )
+
+print(monthly_summary)
+
+
+# ==============================================================
+# 16. PEAK MONTH
+# ==============================================================
+
+peak_month <- monthly_summary %>%
+  slice_max(Total_Cases, n = 1)
+
+trough_month <- monthly_summary %>%
+  slice_min(Total_Cases, n = 1)
+
+cat("\nPeak month:",
+    as.character(peak_month$MONTH),
+    "=",
+    peak_month$Total_Cases,
+    "cases")
+
+cat("\nLowest month:",
+    as.character(trough_month$MONTH),
+    "=",
+    trough_month$Total_Cases,
+    "cases")
+
+
+# ==============================================================
+# 17. TIME SERIES
+# ==============================================================
+
+ts_data <- all_data %>%
+  group_by(YEAR, MONTH, MONTH_NUM) %>%
+  summarise(
+    Total_Cases = sum(CASES),
+    .groups = "drop"
+  ) %>%
+  arrange(YEAR, MONTH_NUM)
+
+ts_je <- ts(
+  ts_data$Total_Cases,
+  start = c(2019,1),
+  frequency = 12
+)
+
+print(ts_je)
+
+
+# ==============================================================
+# 18. STL SEASONAL DECOMPOSITION
+# ==============================================================
+
+stl_je <- stl(
+  ts_je,
+  s.window = "periodic"
+)
+
+plot(stl_je)
+
+
+# ==============================================================
+# 19. MONTHLY SEASONAL INDEX
+# ==============================================================
+
+seasonal_index <- all_data %>%
+  group_by(MONTH, MONTH_NUM) %>%
+  summarise(
+    Mean_Cases = mean(CASES),
+    .groups = "drop"
+  ) %>%
+  arrange(MONTH_NUM)
+
+overall_mean <- mean(all_data$CASES)
+
+seasonal_index <- seasonal_index %>%
+  mutate(
+    Seasonal_Index = Mean_Cases / overall_mean
+  )
+
+print(seasonal_index)
+
+
+# ==============================================================
+# 20. MONTHLY JEV CASE GRAPH
+# ==============================================================
+
+ggplot(
+  monthly_summary,
+  aes(x = MONTH, y = Total_Cases)
+) +
+  geom_col() +
+  geom_text(
+    aes(label = Total_Cases),
+    vjust = -0.3,
+    size = 4
+  ) +
+  labs(
+    title = "Monthly Distribution of JEV-Positive Cases, 2019-2025",
+    x = "Month",
+    y = "JEV-Positive Cases"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(
+      hjust = 0.5,
+      face = "bold"
+    ),
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1
+    )
+  )
+
+
+# ==============================================================
+# 21. YEARLY SEASONAL PATTERN
+# ==============================================================
+
+ggplot(
+  ts_data,
+  aes(
+    x = MONTH_NUM,
+    y = Total_Cases,
+    group = YEAR,
+    color = factor(YEAR)
+  )
+) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  scale_x_continuous(
+    breaks = 1:12,
+    labels = months
+  ) +
+  labs(
+    title = "Year-wise Monthly Seasonal Pattern of JEV Cases",
+    x = "Month",
+    y = "JEV-Positive Cases",
+    color = "Year"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(
+      hjust = 0.5,
+      face = "bold"
+    ),
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1
+    ),
+    legend.position = "bottom"
+  )
+
+
+# ==============================================================
+# 22. SAVE RESULTS
+# ==============================================================
+
+write.csv(
+  all_data,
+  "JEV_CORRECTED_DATA_2019_2025.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  district_summary,
+  "JEV_DISTRICT_TOTALS.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  monthly_summary,
+  "JEV_MONTHLY_TOTALS.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  yearly_summary,
+  "JEV_YEARLY_TOTALS.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  seasonal_index,
+  "JEV_SEASONAL_INDEX.csv",
+  row.names = FALSE
+)
+
+
+# ==============================================================
+# FINAL CHECK
+# ==============================================================
+
+cat("\n\n====================================")
+cat("\nFINAL DATA CHECK")
+cat("\n====================================")
+cat("\nDRJ =", sum(DRJ))
+cat("\nJAL =", sum(JAL))
+cat("\nUDJ =", sum(UDJ))
+cat("\nAPD =", sum(APD))
+cat("\nCRB =", sum(CRB))
+cat("\n-------------------------")
+cat("\nOVERALL =", sum(all_data$CASES))
+cat("\n====================================\n")
+
+# ==============================================================
+# COLORFUL VERSIONS
+# ==============================================================
+suppressMessages(library(tidyverse))
+
+# ---- 1. Colorful STL decomposition ----
+comp <- as.data.frame(stl_je$time.series)
+comp$Data <- as.numeric(ts_je)
+comp$Date <- as.Date(paste(ts_data$YEAR, ts_data$MONTH_NUM, 1, sep="-"))
+
+comp_long <- comp %>%
+  select(Date, Data, seasonal, trend, remainder) %>%
+  rename(Seasonal = seasonal, Trend = trend, Remainder = remainder) %>%
+  pivot_longer(-Date, names_to = "Component", values_to = "Value") %>%
+  mutate(Component = factor(Component, levels = c("Data","Seasonal","Trend","Remainder")))
+
+p_stl <- ggplot(comp_long, aes(x = Date, y = Value, color = Component)) +
+  geom_line(linewidth = 0.9) +
+  facet_wrap(~Component, ncol = 1, scales = "free_y") +
+  scale_color_manual(values = c(
+    "Data" = "#2C3E50",
+    "Seasonal" = "#E67E22",
+    "Trend" = "#27AE60",
+    "Remainder" = "#C0392B"
+  )) +
+  labs(
+    title = "STL Decomposition of JEV-Positive Cases (2019-2025)",
+    x = "Year", y = NULL
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    legend.position = "none",
+    strip.background = element_rect(fill = "#EAEDED"),
+    strip.text = element_text(face = "bold")
+  )
+
+ggsave("STL_colorful.png", p_stl, width = 9, height = 8, dpi = 150)
+
+# ---- 2. Colorful monthly distribution bar chart ----
+p_month <- ggplot(monthly_summary, aes(x = MONTH, y = Total_Cases, fill = MONTH)) +
+  geom_col(color = "black", linewidth = 0.3) +
+  geom_text(aes(label = Total_Cases), vjust = -0.4, size = 4, fontface = "bold") +
+  scale_fill_manual(values = c(
+    "JAN"="#8E44AD","FEB"="#2980B9","MAR"="#16A085","APR"="#27AE60",
+    "MAY"="#F1C40F","JUN"="#F39C12","JUL"="#E67E22","AUG"="#E74C3C",
+    "NOV"="#34495E","OCT"="#D35400","SEP"="#C0392B","DEC"="#2C3E50"
+  )) +
+  labs(
+    title = "Monthly Distribution of JEV-Positive Cases, 2019-2025",
+    x = "Month", y = "JEV-Positive Cases"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+
+ggsave("Monthly_colorful.png", p_month, width = 8, height = 6, dpi = 150)
+
+cat("\nColorful plots saved.\n")
